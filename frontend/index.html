@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>College Info Chatbot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f0f4f8; display: flex; justify-content: center; padding: 2rem; min-height: 100vh; }
+    .chat-box { background: white; border-radius: 12px; width: 100%; max-width: 680px; display: flex; flex-direction: column; height: 90vh; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+    .header { padding: 1.2rem 1.5rem; border-bottom: 1px solid #e5e7eb; font-weight: 600; font-size: 1.1rem; color: #1f2937; display: flex; align-items: center; gap: 10px; }
+    .header span { font-size: 1.4rem; }
+    .messages { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    .msg { max-width: 80%; padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.95rem; line-height: 1.6; }
+    .user { background: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .bot  { background: #f3f4f6; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 2px; }
+    .bot.error { background: #fee2e2; color: #991b1b; }
+    .sources { font-size: 0.78rem; color: #6b7280; margin-top: 6px; align-self: flex-start; max-width: 80%; }
+    .input-row { display: flex; padding: 1rem; gap: 0.5rem; border-top: 1px solid #e5e7eb; }
+    input { flex: 1; padding: 0.65rem 1rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; outline: none; }
+    input:focus { border-color: #2563eb; }
+    button { background: #2563eb; color: white; border: none; padding: 0.65rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: background 0.2s; }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="chat-box">
+    <div class="header">
+      <span>🎓</span> College Info Assistant
+    </div>
+    <div class="messages" id="messages">
+      <div class="msg bot">Hi! Ask me anything about admission, fees, exam policy, attendance, placements, or college rules.</div>
+    </div>
+    <div class="input-row">
+      <input id="input" type="text" placeholder="Ask a question..." />
+      <button id="send-btn" onclick="send()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000/ask";
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("input");
+    const btnEl = document.getElementById("send-btn");
+
+    // Send on Enter key
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") send();
+    });
+
+    function addMsg(text, role) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      div.scrollIntoView({ behavior: "smooth" });
+      return div;
+    }
+
+    function addSources(sources) {
+      if (!sources || sources.length === 0) return;
+      const unique = [...new Set(sources.map(s => s.split("\\").pop().split("/").pop()))];
+      const div = document.createElement("div");
+      div.className = "sources";
+      div.textContent = "📄 Sources: " + unique.join(", ");
+      messagesEl.appendChild(div);
+    }
+
+    async function send() {
+      const q = inputEl.value.trim();
+      if (!q) return;
+
+      inputEl.value = "";
+      btnEl.disabled = true;
+      addMsg(q, "user");
+      const thinkingMsg = addMsg("Thinking...", "bot");
+
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q })
+        });
+
+        if (!res.ok) throw new Error("Server error");
+
+        const data = await res.json();
+        thinkingMsg.textContent = data.answer;
+        addSources(data.sources);
+      } catch (e) {
+        thinkingMsg.textContent = "Error: Could not reach the server. Make sure it is running.";
+        thinkingMsg.classList.add("error");
+      } finally {
+        btnEl.disabled = false;
+        inputEl.focus();
+      }
+    }
+  </script>
+</body>
+</html>
